@@ -1,0 +1,7 @@
+.idea
+envs 
+**/.git
+.gittignore
+.vscode
+README.md
+LICENSE
