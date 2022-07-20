@@ -18,27 +18,87 @@ services:
     depends_on:
         - postgres
         - mailhog
+        - redis
     networks:
         - food-delivery-api
   postgres:
-      build:
-          context: .
-          dockerfile: ./docker/local/postgres/Dockerfile
-      container_name: postgres
-      volumes:
-          - local_postgres_data:/var/lib/postgresql/data
-          - local_postgres_data_backups:/backups
-      env_file:
-          - ./.envs/.local/.postgres
-      networks:
-          - food-delivery-api
+    build:
+        context: .
+        dockerfile: ./docker/local/postgres/Dockerfile
+    container_name: postgres
+    volumes:
+        - local_postgres_data:/var/lib/postgresql/data
+        - local_postgres_data_backups:/backups
+    env_file:
+        - ./.envs/.local/.postgres
+    networks:
+        - food-delivery-api
+
   mailhog:
-      image: mailhog/mailhog
-      container_name: mailhog
-      ports:
-          - "8025:8025"
-      networks:
-          - food-delivery-api
+    image: mailhog/mailhog
+    container_name: mailhog
+    ports:
+        - "8025:8025"
+    networks:
+        - food-delivery-api
+
+  redis:
+    image: redis:6-alpine
+    container_name: redis
+    networks:
+        - food-delivery-api
+
+  celery_worker:
+    build:
+        context: .
+        dockerfile: ./docker/local/django/Dockerfile
+    command: /start-celeryworker
+    container_name: celery_worker
+    volumes:
+        - .:/app
+    env_file:
+        - ./.envs/.local/.django
+        - ./.envs/.local/.postgres
+    depends_on:
+        - redis
+        - postgres
+        - mailhog
+    networks:
+        - food-delivery-api
+
+  flower:
+    build:
+        context: .
+        dockerfile: ./docker/local/django/Dockerfile
+    command: /start-flower
+    container_name: flower
+    volumes:
+        - .:/app
+    env_file:
+        - ./.envs/.local/.django
+        - ./.envs/.local/.postgres
+    ports:
+        - "5555:5555"
+    depends_on:
+        - redis
+        - postgres
+    networks:
+        - food-delivery-api 
+  nginx:
+    restart: always
+    depends_on:
+        - api
+    volumes:
+        - static_volume:/app/staticfiles
+        - media_volume:/app/mediafiles
+    build:
+        context: ./docker/local/nginx
+        dockerfile: Dockerfile
+    ports:
+        - "8080:80"
+    networks:
+        - food-delivery-api
+          
 
 networks:
     food-delivery-api:
